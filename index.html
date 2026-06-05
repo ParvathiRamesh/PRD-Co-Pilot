@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PRD Co-pilot</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1d2129; --ink:#e8eaf0; --muted:#8b93a7;
+  --line:#262b36; --accent:#5b8cff; --accent2:#3a6bd6;
+  --read:#5b8cff; --draft:#c792ea; --ask:#ffb454; --write:#4fd6a8;
+  --serif:'Georgia','Times New Roman',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:ui-sans-serif,-apple-system,'Segoe UI',sans-serif;
+  background:radial-gradient(1200px 600px at 15% -10%, #1a2030 0%, transparent 60%), var(--bg);
+  color:var(--ink);min-height:100vh}
+.wrap{max-width:1180px;margin:0 auto;padding:28px}
+.hd{display:flex;gap:16px;align-items:center;margin-bottom:18px}
+.hd-mark{font-size:30px;color:var(--accent);filter:drop-shadow(0 0 12px rgba(91,140,255,.5))}
+.hd h1{font-family:var(--serif);font-size:30px;letter-spacing:-.4px;font-weight:600}
+.sub{margin-top:2px;color:var(--muted);font-size:14px;max-width:660px}
+
+/* key bar */
+.keybar{display:flex;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);
+  border-radius:10px;padding:10px 14px;margin-bottom:14px;flex-wrap:wrap}
+.keybar .kl{font-size:13px;color:var(--muted);white-space:nowrap}
+.keybar input{flex:1;min-width:220px;background:var(--bg);border:1px solid var(--line);border-radius:8px;
+  padding:9px 12px;color:var(--ink);font-size:13px;outline:none;font-family:ui-monospace,monospace}
+.keybar input:focus{border-color:var(--accent)}
+.keystate{font-size:12px;padding:3px 10px;border-radius:6px;white-space:nowrap}
+.keystate.unset{background:rgba(255,180,84,.16);color:var(--ask)}
+.keystate.set{background:rgba(79,214,168,.16);color:var(--write)}
+.keyhelp{font-size:12px;color:var(--muted);margin:-6px 2px 16px}
+.keyhelp a{color:var(--accent);text-decoration:none}
+.keyhelp a:hover{text-decoration:underline}
+
+.input-row{display:flex;gap:10px;margin-bottom:10px}
+.goal{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:14px 16px;color:var(--ink);font-size:15px;outline:none}
+.goal:focus{border-color:var(--accent)}
+.go{background:linear-gradient(180deg,var(--accent),var(--accent2));color:#fff;border:0;
+  border-radius:10px;padding:0 22px;font-size:15px;font-weight:600;cursor:pointer;
+  box-shadow:0 4px 16px rgba(91,140,255,.35);transition:transform .1s}
+.go:hover:not(:disabled){transform:translateY(-1px)}
+.go:disabled{opacity:.5;cursor:default;box-shadow:none}
+.go.small{padding:8px 16px;font-size:13px}
+.deny{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:10px;
+  padding:8px 16px;font-size:13px;cursor:pointer}
+.deny:hover{border-color:var(--write);color:var(--write)}
+.examples{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:18px;font-size:13px;color:var(--muted)}
+.chip{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:20px;
+  padding:5px 12px;font-size:12px;cursor:pointer}
+.chip:hover:not(:disabled){border-color:var(--accent)}
+.hint{font-style:italic;color:var(--ask);font-size:12px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:880px){.cols{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  display:flex;flex-direction:column;min-height:420px}
+.panel-h{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:600;font-size:14px;
+  display:flex;justify-content:space-between;align-items:center;background:var(--panel2)}
+.muted{color:var(--muted);font-weight:400;font-size:12px}
+.trace{padding:14px 18px;overflow-y:auto;flex:1;max-height:560px}
+.empty{color:var(--muted);font-size:13px;font-style:italic;padding:30px 0;text-align:center}
+.step{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(38,43,54,.6);animation:fade .35s both}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.step-dot{width:10px;height:10px;border-radius:50%;margin-top:5px;flex-shrink:0;box-shadow:0 0 8px currentColor}
+.step-body{flex:1}
+.step-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.step-title{font-weight:600;font-size:14px}
+.step-tag{font-size:9px;letter-spacing:.5px;border:1px solid;border-radius:4px;padding:1px 6px;font-weight:700}
+.step-why{color:var(--muted);font-size:12.5px;margin:3px 0;font-style:italic}
+.step-result{font-size:13px;color:var(--ink);background:var(--panel2);padding:6px 10px;border-radius:6px;margin-top:4px;border:1px solid var(--line)}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--muted);border-top-color:var(--accent);
+  border-radius:50%;animation:rot .7s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes rot{to{transform:rotate(360deg)}}
+.prompt-card{border-radius:10px;padding:14px;margin:12px 0;border:1px solid}
+.prompt-card.ask{background:rgba(255,180,84,.08);border-color:rgba(255,180,84,.4)}
+.prompt-card.write{background:rgba(79,214,168,.08);border-color:rgba(79,214,168,.4)}
+.prompt-title{font-size:11px;letter-spacing:.6px;text-transform:uppercase;font-weight:700;margin-bottom:6px}
+.prompt-card.ask .prompt-title{color:var(--ask)}
+.prompt-card.write .prompt-title{color:var(--write)}
+.prompt-q{font-size:14px;margin-bottom:10px}
+.answer{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;
+  color:var(--ink);padding:8px 10px;font-size:13px;outline:none;resize:vertical;margin-bottom:8px;font-family:inherit}
+.answer:focus{border-color:var(--ask)}
+.approve-row{display:flex;gap:10px}
+.prd{padding:16px 20px;overflow-y:auto;flex:1;max-height:560px}
+.md h2{font-family:var(--serif);font-size:20px;margin:4px 0 10px}
+.md h3{font-family:var(--serif);font-size:15px;margin:16px 0 4px;color:var(--accent);font-weight:600}
+.md p{font-size:13.5px;line-height:1.6;margin:4px 0;color:#cdd2df}
+.md li{font-size:13.5px;line-height:1.6;margin:3px 0 3px 18px;color:#cdd2df}
+.md strong{color:var(--ink)}
+.mb{height:6px}
+.score{font-size:13px;font-weight:700;padding:3px 10px;border-radius:6px}
+.score.good{background:rgba(79,214,168,.16);color:var(--write)}
+.score.mid{background:rgba(255,180,84,.16);color:var(--ask)}
+.writes{border-top:1px solid var(--line);padding:14px 20px;background:var(--panel2)}
+.writes-h{font-size:13px;font-weight:600;margin-bottom:8px}
+.write-line{font-size:12.5px;color:#cdd2df;padding:4px 0;font-family:ui-monospace,monospace}
+.mock{background:var(--ask);color:#1a1206;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;letter-spacing:.5px;margin-right:6px}
+.download{margin:14px 20px 20px;align-self:flex-start;background:transparent;border:1px solid var(--accent);
+  color:var(--accent);border-radius:10px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer}
+.download:hover{background:rgba(91,140,255,.12)}
+.err{background:rgba(255,90,90,.12);border:1px solid rgba(255,90,90,.4);color:#ff9a9a;
+  padding:10px 14px;border-radius:10px;margin:12px 0;font-size:13px;line-height:1.5}
+.ft{text-align:center;color:var(--muted);font-size:12px;margin-top:22px;font-style:italic}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hd">
+    <div class="hd-mark">◆</div>
+    <div>
+      <h1>PRD Co-pilot</h1>
+      <p class="sub">One sentence in. A review-ready PRD out. A live model decides each next step, gathers context, drafts, reviews itself until it clears the bar, and gates every write for your approval.</p>
+    </div>
+  </header>
+
+  <div class="keybar">
+    <span class="kl">Anthropic API key</span>
+    <input id="key" type="password" placeholder="sk-ant-… (kept in this tab only, never saved to the file)" autocomplete="off" />
+    <span id="keystate" class="keystate unset">no key yet</span>
+  </div>
+  <div class="keyhelp">
+    Your key stays in this browser tab's memory only — it is never written into this file, never uploaded anywhere except directly to Anthropic, and is gone when you close the tab.
+    Get a key at <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a> → API Keys.
+  </div>
+
+  <div class="input-row">
+    <input id="goal" class="goal" value="users can't find their past invoices" placeholder="e.g. users can't find their past invoices" />
+    <button id="runBtn" class="go">Generate PRD</button>
+  </div>
+  <div class="examples">
+    Try:
+    <button class="chip" data-ex="users can't find their past invoices">users can't find their past invoices</button>
+    <button class="chip" data-ex="users keep losing their saved cards">users keep losing their saved cards</button>
+    <button class="chip" data-ex="onboarding drop-off is too high">onboarding drop-off is too high</button>
+    <span class="hint">↑ the middle one has no matching metric — watch it ask a question</span>
+  </div>
+
+  <div class="cols">
+    <section class="panel">
+      <div class="panel-h">Agent reasoning <span class="muted">— each step is a decision, not a script</span></div>
+      <div id="trace" class="trace"><div class="empty">The agent's decisions will appear here, one at a time.</div></div>
+    </section>
+    <section class="panel">
+      <div class="panel-h">PRD output <span id="scoreWrap"></span></div>
+      <div id="prd" class="prd"><div class="empty">The drafted PRD will render here.</div></div>
+      <div id="writes"></div>
+      <div id="downloadWrap"></div>
+    </section>
+  </div>
+
+  <footer class="ft">Autonomy is real · drafting is live · integration is simulated · writes are human-gated.</footer>
+</div>
+
+<script>
+const MODEL="claude-sonnet-4-6";
+const MOCK={
+  jira:[
+    {key:"BILL-198",summary:"Customers email support asking where past invoices are",note:"Patched with a help-center article. Root cause never addressed."},
+    {key:"BILL-204",summary:"Invoice list pagination breaks after 50 items",note:"Fixed with load-more. Shipped Q3."},
+    {key:"BILL-251",summary:"Export invoice as PDF returns 500 for older invoices",note:"Open; older invoices only."},
+  ],
+  recentPrds:[
+    "Saved Payment Methods PRD — crisp problem tied to a metric; numeric goals; 'As a X, I want Y' stories; Non-Goals section.",
+    "Subscription Downgrade Flow PRD — opens with support-ticket volume; risks name owning team.",
+    "Usage-Based Billing Dashboard PRD — metrics as before/after deltas; staged rollout internal→5%→GA.",
+  ],
+  analytics:{invoice_history:{mau:12400,support_tickets_30d:318,task_success_rate:0.41,avg_time_to_find_s:96}},
+};
+// Threshold the review loop must clear, and the max passes before giving up.
+const REVIEW_TARGET=85, MAX_REVIEW_PASSES=3, MAX_STEPS=12;
+
+// Tools the agent can choose from. The reasoner picks one each turn by name.
+const TOOL_LIST=[
+  "search_jira — find related prior tickets (read; no approval needed)",
+  "get_style — read the PRD template and recent PRDs for house style (read)",
+  "get_metrics — look up baseline analytics for the problem's flow (read). Returns NOT_FOUND if no flow matches.",
+  "ask_user — ask the human ONE clarifying question (use only if missing context blocks a good PRD)",
+  "draft_prd — write the PRD from everything gathered so far (do this only after gathering)",
+  "review_prd — score the current draft against the rubric and revise weak sections",
+  "finish — stop; the PRD is gathered, drafted, and has cleared review",
+];
+const SYS={
+  reason:"You are the control loop of a PRD co-pilot agent. Each turn you choose the SINGLE next action. "+
+    "Do not assume a fixed order — decide based on what you have already done and learned. "+
+    "Gather context (jira, style, metrics) before drafting. If get_metrics returns NOT_FOUND, you must ask_user "+
+    "rather than invent a number — but ask at most once. Draft, then review; if review is below target, you may "+
+    "review again (it revises each pass). When the draft has cleared review, choose finish. "+
+    "Never choose the same read tool twice. "+
+    "Available tools:\n"+TOOL_LIST.join("\n")+"\n\n"+
+    "Respond as JSON only, no fences: {\"tool\":\"<name>\",\"why\":\"<short reason>\"}",
+  draft:"You are a PRD co-pilot. Write a concise, review-ready PRD in markdown using EXACTLY these sections: ## 1. Problem, ## 2. Goals & Success Metrics, ## 3. Non-Goals, ## 4. User Stories, ## 5. Requirements, ## 6. Risks & Open Questions, ## 7. Rollout Plan. Ground the problem and metrics in the provided context. User stories must use 'As a X, I want Y, so that Z'. Every risk names an owning team. Be specific, not generic. Return only the markdown PRD, no preamble.",
+  review:"You are a strict PRD reviewer. Score the PRD 0-100 on: problem cites a metric (15), numeric goals (15), has non-goals (10), user-story format (15), requirements present (10), risks name owners (10), staged rollout (10), clarity (15). If any section is weak, rewrite ONLY that section to fix it. Respond as JSON only, no fences: {\"score\": <int>, \"note\": \"<one line>\", \"prd\": \"<full revised markdown>\"}",
+};
+const KIND={read:{dot:"var(--read)",tag:"GATHER"},draft:{dot:"var(--draft)",tag:"DRAFT"},ask:{dot:"var(--ask)",tag:"ASK"},write:{dot:"var(--write)",tag:"WRITE · NEEDS APPROVAL"}};
+const $=(id)=>document.getElementById(id);
+const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+let running=false;
+
+const keyInput=$("key");
+keyInput.addEventListener("input",()=>{
+  const ok=keyInput.value.trim().startsWith("sk-");
+  $("keystate").className="keystate "+(ok?"set":"unset");
+  $("keystate").textContent=ok?"key ready":"no key yet";
+});
+document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{ if(!running) $("goal").value=c.dataset.ex; }));
+$("runBtn").addEventListener("click", run);
+
+function runFlow(goal){ const g=goal.toLowerCase(); return Object.keys(MOCK.analytics).find(f=>f.split("_").some(t=>g.includes(t)))||null; }
+function esc(s){ return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+function addStep(s){
+  const trace=$("trace");
+  if(trace.querySelector(".empty")) trace.innerHTML="";
+  const ks=KIND[s.kind];
+  const el=document.createElement("div"); el.className="step";
+  el.innerHTML=`<div class="step-dot" style="background:${ks.dot}"></div>
+    <div class="step-body"><div class="step-top"><span class="step-title">${esc(s.title)}</span>
+    <span class="step-tag" style="color:${ks.dot};border-color:${ks.dot}">${ks.tag}</span></div>
+    <div class="step-why">${esc(s.why)}</div><div class="step-result">${s.result}</div></div>`;
+  trace.appendChild(el); trace.scrollTop=trace.scrollHeight; return el;
+}
+function setResult(el,html){ el.querySelector(".step-result").innerHTML=html; $("trace").scrollTop=$("trace").scrollHeight; }
+function showError(msg){ const d=document.createElement("div"); d.className="err"; d.innerHTML="⚠ "+msg; $("trace").appendChild(d); $("trace").scrollTop=$("trace").scrollHeight; }
+
+function askHuman(renderer){
+  return new Promise(resolve=>{
+    const trace=$("trace"); const card=document.createElement("div"); trace.appendChild(card);
+    renderer(card,(val)=>{ card.remove(); resolve(val); }); trace.scrollTop=trace.scrollHeight;
+  });
+}
+function askQuestion(q){
+  return askHuman((card,done)=>{
+    card.className="prompt-card ask";
+    card.innerHTML=`<div class="prompt-title">The agent is asking you</div><div class="prompt-q">${esc(q)}</div>
+      <textarea class="answer" rows="2" placeholder="Type your answer — e.g. 'activation rate, currently ~30%'"></textarea>
+      <button class="go small">Send answer</button>`;
+    const ta=card.querySelector("textarea"),btn=card.querySelector("button");
+    btn.addEventListener("click",()=>{ if(ta.value.trim()) done(ta.value.trim()); });
+  });
+}
+function requestApproval(desc){
+  return askHuman((card,done)=>{
+    card.className="prompt-card write";
+    card.innerHTML=`<div class="prompt-title">Approval required — simulated write</div><div class="prompt-q">${esc(desc)}</div>
+      <div class="approve-row"><button class="go small">Approve</button><button class="deny small">Deny</button></div>`;
+    const [ok,no]=card.querySelectorAll("button");
+    ok.addEventListener("click",()=>done(true)); no.addEventListener("click",()=>done(false));
+  });
+}
+
+// ─── direct Anthropic call with the user's key ───
+async function callModel(action, prompt){
+  const key=keyInput.value.trim();
+  const res=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "x-api-key":key,
+      "anthropic-version":"2023-06-01",
+      "anthropic-dangerous-direct-browser-access":"true",
+    },
+    body:JSON.stringify({model:MODEL,max_tokens:action==="review"?2200:1600,system:SYS[action],messages:[{role:"user",content:prompt}]}),
+  });
+  if(!res.ok){
+    let detail=""; try{ const j=await res.json(); detail=j.error?.message||JSON.stringify(j.error||j);}catch{ detail=await res.text(); }
+    throw new Error("Model API error ("+res.status+"): "+detail.slice(0,300));
+  }
+  const data=await res.json();
+  return (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
+}
+
+function buildContext(m){
+  const lines=[];
+  if(m.done.search_jira) lines.push("Prior Jira tickets:\n"+MOCK.jira.map(t=>`- ${t.key}: ${t.summary} (${t.note})`).join("\n"));
+  if(m.done.get_style) lines.push("Team style from recent PRDs:\n"+MOCK.recentPrds.map(p=>"- "+p).join("\n"));
+  if(m.metrics){ const x=m.metrics; lines.push(`Baseline metrics: task success ${Math.round(x.task_success_rate*100)}%, ${x.support_tickets_30d} support tickets/30d, ${x.mau} MAU, median ${x.avg_time_to_find_s}s.`); }
+  if(m.answers.metric) lines.push("User-provided baseline: "+m.answers.metric);
+  return lines.join("\n\n") || "(nothing gathered yet)";
+}
+
+// State summary the reasoner sees each turn, so it can decide the next action.
+function stateSummary(m){
+  return JSON.stringify({
+    goal:m.goal,
+    actions_done:Object.keys(m.done),
+    metrics_status:m.metrics?"found":(m.answers.metric?"provided_by_user":(m.done.get_metrics?"NOT_FOUND":"not_checked_yet")),
+    has_draft:!!m.prd,
+    last_review_score:m.lastScore,
+    review_passes:m.reviewPasses,
+    asked_user_already:!!m.answers.metric,
+  });
+}
+
+// Ask the reasoner model which tool to run next. Falls back to a sensible
+// deterministic choice if the model reply can't be parsed.
+async function decideNext(m){
+  try{
+    const raw=await callModel("reason","Current state:\n"+stateSummary(m)+"\n\nChoose the next tool.");
+    const j=JSON.parse(raw.replace(/```json|```/g,"").trim());
+    if(j&&j.tool) return j;
+  }catch(e){/* fall through */}
+  // deterministic fallback mirrors a sensible order
+  if(!m.done.search_jira) return {tool:"search_jira",why:"(fallback) gather prior work"};
+  if(!m.done.get_style) return {tool:"get_style",why:"(fallback) learn house style"};
+  if(!m.done.get_metrics) return {tool:"get_metrics",why:"(fallback) get baseline"};
+  if(!m.metrics&&!m.answers.metric) return {tool:"ask_user",why:"(fallback) no metric, ask"};
+  if(!m.prd) return {tool:"draft_prd",why:"(fallback) draft"};
+  if((m.lastScore||0)<REVIEW_TARGET&&m.reviewPasses<MAX_REVIEW_PASSES) return {tool:"review_prd",why:"(fallback) review"};
+  return {tool:"finish",why:"(fallback) done"};
+}
+
+async function run(){
+  if(running) return;
+  if(!keyInput.value.trim().startsWith("sk-")){ showError("Enter your Anthropic API key in the box above first. Get one at console.anthropic.com → API Keys."); return; }
+  running=true;
+  const goal=$("goal").value.trim(); if(!goal){ running=false; return; }
+  $("runBtn").disabled=true; $("runBtn").textContent="Working…";
+  $("trace").innerHTML='<div class="empty">The agent\'s decisions will appear here, one at a time.</div>';
+  $("prd").innerHTML='<div class="empty">The drafted PRD will render here.</div>';
+  $("scoreWrap").innerHTML=""; $("writes").innerHTML=""; $("downloadWrap").innerHTML="";
+  const mem={goal,answers:{},metrics:null,prd:null,done:{},lastScore:null,reviewPasses:0};
+  const writes=[];
+
+  try{
+    for(let step=0; step<MAX_STEPS; step++){
+      const decision=await decideNext(mem);
+      const tool=decision.tool;
+
+      // ── guardrails ──
+      if(["search_jira","get_style","get_metrics"].includes(tool) && mem.done[tool]){
+        // model tried to repeat a read; nudge it forward instead of looping
+        if(!mem.prd){ await doDraft(mem); continue; } else { break; }
+      }
+
+      if(tool==="finish"){
+        if(!mem.prd){ await doDraft(mem); } // never finish without a draft
+        break;
+      }
+
+      if(tool==="search_jira"){
+        addStep({kind:"read",title:"Search Jira",why:decision.why,result:esc(MOCK.jira.map(t=>t.key+": "+t.summary).join("  ·  "))});
+        mem.done.search_jira=true; await sleep(350); continue;
+      }
+      if(tool==="get_style"){
+        addStep({kind:"read",title:"Read template + recent PRDs",why:decision.why,result:MOCK.recentPrds.length+" recent PRDs + template loaded"});
+        mem.done.get_style=true; await sleep(350); continue;
+      }
+      if(tool==="get_metrics"){
+        const flow=runFlow(goal); mem.done.get_metrics=true;
+        if(flow){ mem.metrics=MOCK.analytics[flow]; const x=mem.metrics;
+          addStep({kind:"read",title:"Pull baseline metrics",why:decision.why,result:`task success ${Math.round(x.task_success_rate*100)}%  ·  ${x.support_tickets_30d} tickets/30d  ·  ${x.mau.toLocaleString()} MAU`}); }
+        else addStep({kind:"read",title:"Metrics lookup → NOT_FOUND",why:decision.why,result:"No instrumented flow matches this problem."});
+        await sleep(350); continue;
+      }
+      if(tool==="ask_user"){
+        if(mem.answers.metric){ continue; } // already asked once
+        addStep({kind:"ask",title:"Clarifying question",why:decision.why,result:"Pausing for your input…"});
+        const ans=await askQuestion("I couldn't find baseline metrics for this problem. What key metric or baseline should I anchor the PRD to?");
+        mem.answers.metric=ans;
+        addStep({kind:"ask",title:"Answer received",why:"Using your input as the baseline.",result:esc(ans)});
+        continue;
+      }
+      if(tool==="draft_prd"){ await doDraft(mem); continue; }
+      if(tool==="review_prd"){
+        if(!mem.prd){ await doDraft(mem); continue; }
+        await doReview(mem); continue;
+      }
+      // unknown tool name → ignore and let the loop re-decide
+    }
+
+    // ── writes: always human-gated, regardless of what the loop decided ──
+    const pub=await requestApproval("Publish this PRD to Confluence (simulated — nothing is sent to a real system).");
+    if(pub){ writes.push({type:"Confluence page",detail:"PRD → confluence.local (simulated)"}); addStep({kind:"write",title:"Published (simulated)",why:"Approved by you.",result:"Mock Confluence page created"}); }
+    else addStep({kind:"write",title:"Publish skipped",why:"You denied approval.",result:"No page created"});
+
+    const jira=await requestApproval("Create Jira stories from the PRD's user stories (simulated).");
+    if(jira){ const stories=extractStories(mem.prd||""); stories.forEach((s,i)=>writes.push({type:"Jira story",detail:`BILL-${300+i}: ${s}`})); addStep({kind:"write",title:"Stories created (simulated)",why:"Approved by you.",result:`${stories.length} mock stories created`}); }
+    else addStep({kind:"write",title:"Jira creation skipped",why:"You denied approval.",result:"No stories created"});
+
+    renderWrites(writes); renderDownload(mem.prd||"",goal);
+  }catch(e){
+    let hint="";
+    if(/401|authentication|x-api-key|invalid/i.test(e.message)) hint="<br>The key looks wrong or inactive — check it at console.anthropic.com.";
+    else if(/CORS|Failed to fetch|NetworkError/i.test(e.message)) hint="<br>If this is a network/CORS error, your browser or a corporate proxy may be blocking the call. Try a different browser, or use the deployed version.";
+    else if(/429|rate/i.test(e.message)) hint="<br>Rate or usage limit hit — wait a moment or check your Anthropic account credits.";
+    showError(esc(e.message)+hint);
+  }finally{
+    $("runBtn").disabled=false; $("runBtn").textContent="Generate PRD"; running=false;
+  }
+}
+
+async function doDraft(mem){
+  const dStep=addStep({kind:"draft",title:"Draft PRD (live model)",why:"Enough context gathered — the model writes the PRD.",result:'<span class="spin"></span>Generating…'});
+  mem.prd=await callModel("draft",`Problem: ${mem.goal}\n\nContext gathered:\n${buildContext(mem)}\n\nWrite the PRD.`);
+  mem.done.draft_prd=true;
+  setResult(dStep,"Draft complete"); renderPRD(mem.prd);
+}
+
+async function doReview(mem){
+  mem.reviewPasses++;
+  const rStep=addStep({kind:"draft",title:`Self-review pass ${mem.reviewPasses} (live model)`,why:"Score against the rubric and rewrite weak sections.",result:'<span class="spin"></span>Scoring…'});
+  try{
+    const raw=await callModel("review",mem.prd);
+    const parsed=JSON.parse(raw.replace(/```json|```/g,"").trim());
+    if(parsed.prd){ mem.prd=parsed.prd; renderPRD(mem.prd); }
+    mem.lastScore=parsed.score;
+    const cleared=parsed.score>=REVIEW_TARGET;
+    setResult(rStep,`Rubric score: <strong>${parsed.score}/100</strong> — ${esc(parsed.note||"revised")}`+(cleared?" ✓ cleared":(mem.reviewPasses<MAX_REVIEW_PASSES?" · will revise again":" · max passes reached")));
+    $("scoreWrap").innerHTML=`<span class="score ${cleared?"good":"mid"}">${parsed.score}/100</span>`;
+  }catch(e){
+    // graceful fallback: structural score so the user always sees something
+    const s=structuralScore(mem.prd);
+    mem.lastScore=s;
+    setResult(rStep,`Review returned non-JSON; structural score: <strong>${s}/100</strong>`);
+    $("scoreWrap").innerHTML=`<span class="score ${s>=REVIEW_TARGET?"good":"mid"}">${s}/100</span>`;
+  }
+  await sleep(200);
+}
+
+// Browser-side structural score (fallback if the model's review JSON won't parse)
+function structuralScore(prd){
+  if(!prd) return 0; let s=0;
+  if(/##\s*1\./.test(prd)&&/\d/.test(prd)) s+=30;
+  if(/%/.test(prd)) s+=15;
+  if(/non-goals/i.test(prd)) s+=10;
+  if(/as a /i.test(prd)) s+=15;
+  if(/rollout/i.test(prd)) s+=10;
+  if(/owning team|owner/i.test(prd)) s+=10;
+  if(/≥\s*85|85%/.test(prd)) s+=10;
+  return Math.min(s,100);
+}
+
+function renderPRD(md){
+  const el=$("prd"); el.innerHTML="";
+  const box=document.createElement("div"); box.className="md";
+  md.split("\n").forEach(line=>{
+    let node;
+    if(/^##\s/.test(line)){ node=document.createElement("h3"); node.textContent=line.replace(/^##\s/,""); }
+    else if(/^#\s/.test(line)){ node=document.createElement("h2"); node.textContent=line.replace(/^#\s/,""); }
+    else if(/^\s*[-*]\s/.test(line)){ node=document.createElement("li"); node.innerHTML=bold(esc(line.replace(/^\s*[-*]\s/,""))); }
+    else if(line.trim()===""){ node=document.createElement("div"); node.className="mb"; }
+    else { node=document.createElement("p"); node.innerHTML=bold(esc(line)); }
+    box.appendChild(node);
+  });
+  el.appendChild(box);
+}
+function bold(s){ return s.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>"); }
+function extractStories(prd){
+  const out=[]; let cap=false;
+  for(const line of prd.split("\n")){
+    if(/^##\s*4\./.test(line)){ cap=true; continue; }
+    if(cap && /^##\s/.test(line)) break;
+    const m=line.match(/^\s*[-*]\s*(As a .+)$/i); if(m) out.push(m[1].trim());
+  }
+  return out.length?out:["As a user, I want to find what I need, so that I don't contact support."];
+}
+function renderWrites(writes){
+  if(!writes.length) return;
+  const el=$("writes"); el.className="writes";
+  el.innerHTML=`<div class="writes-h">Simulated writes <span class="muted">— mocked, nothing sent to a real system</span></div>`+
+    writes.map(w=>`<div class="write-line"><span class="mock">MOCK</span> ${esc(w.type)}: ${esc(w.detail)}</div>`).join("");
+}
+function renderDownload(prd,goal){
+  const btn=document.createElement("button"); btn.className="download"; btn.textContent="↓ Download PRD (.md)";
+  btn.addEventListener("click",()=>{
+    const blob=new Blob([`# PRD: ${goal}\n\n${prd}\n`],{type:"text/markdown"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="PRD.md"; a.click();
+  });
+  $("downloadWrap").appendChild(btn);
+}
+</script>
+</body>
+</html>
